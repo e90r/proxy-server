@@ -51,7 +51,7 @@ def build_tunnel(server_sock: socket.socket, client_sock: socket.socket):
 
 
 def handle_conn(client_sock: socket.socket):
-    raw_request = receive_all(client_sock)
+    raw_request = client_sock.recv(BUFF)
     request = HTTPRequest(raw_request.decode())
     print(f"Connecting to {request.host}:{request.port}")
 
@@ -66,29 +66,25 @@ def handle_conn(client_sock: socket.socket):
 
     if 'CONNECT' != request.command:
         server_sock.sendall(raw_request)
-        response = receive_all(server_sock)
-        client_sock.sendall(response)
+
+        raw_response = server_sock.recv(BUFF)
+        raw_headers = raw_response.split(b'\r\n\r\n', 1)[0].split(b'\r\n', 1)[1]
+        headers = BytesParser().parsebytes(raw_headers)
+
+        if 'Content-Length' in headers:
+            while len(raw_response) < int(headers['Content-Length']):
+                raw_response += server_sock.recv(BUFF)
+        elif 'Transfer-Encoding' in headers \
+                and headers['Transfer-Encoding'] == 'chunked':
+            while not raw_response.endswith(b'0\r\n\r\n'):
+                raw_response += server_sock.recv(BUFF)
+
+        client_sock.sendall(raw_response)
 
         server_sock.close()
         client_sock.close()
     else:
         build_tunnel(server_sock, client_sock)
-
-
-def receive_all(sock: socket.socket):
-    raw_data = sock.recv(BUFF)
-    raw_headers = raw_data.split(b'\r\n\r\n', 1)[0].split(b'\r\n', 1)[1]
-    headers = BytesParser().parsebytes(raw_headers)
-
-    if 'Content-Length' in headers:
-        while len(raw_data) < int(headers['Content-Length']):
-            raw_data += sock.recv(BUFF)
-    elif 'Transfer-Encoding' in headers \
-            and headers['Transfer-Encoding'] == 'chunked':
-        while not raw_data.endswith(b'0\r\n\r\n'):
-            raw_data += sock.recv(BUFF)
-
-    return raw_data
 
 
 def run_proxy():
