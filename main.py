@@ -22,8 +22,7 @@ class HTTPRequest(BaseHTTPRequestHandler):
 
 
 def build_tunnel(server_sock: socket.socket, client_sock: socket.socket):
-    message = b"HTTP/1.1 200 Connection established\r\n" \
-              b"ProxyServer-agent: Egor\r\n\r\n"
+    message = b"HTTP/1.1 200 Connection established\r\n\r\n"
     client_sock.sendall(message)
 
     client_sock.setblocking(False)
